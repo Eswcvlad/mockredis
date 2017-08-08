@@ -22,6 +22,7 @@ if sys.version_info >= (3, 0):
     long = int
     xrange = range
     basestring = str
+    unicode = str
     from functools import reduce
 
 
@@ -40,6 +41,9 @@ class MockRedis(object):
                  load_lua_dependencies=True,
                  blocking_timeout=1000,
                  blocking_sleep_interval=0.01,
+                 encoding='utf-8',
+                 encoding_errors='strict',
+                 decode_responses=False,
                  **kwargs):
         """
         Initialize as either StrictRedis or Redis.
@@ -51,6 +55,9 @@ class MockRedis(object):
         self.load_lua_dependencies = load_lua_dependencies
         self.blocking_timeout = blocking_timeout
         self.blocking_sleep_interval = blocking_sleep_interval
+        self.encoding = encoding
+        self.encoding_errors = encoding_errors
+        self.decode_responses = decode_responses
         # The 'Redis' store
         self.redis = defaultdict(dict)
         self.redis_config = defaultdict(dict)
@@ -1543,17 +1550,11 @@ class MockRedis(object):
         return True, float(score)
 
     def _encode(self, value):
-        "Return a bytestring representation of the value. Taken from redis-py connection.py"
-        if isinstance(value, bytes):
-            return value
-        elif isinstance(value, (int, long)):
-            value = str(value).encode('utf-8')
-        elif isinstance(value, float):
-            value = repr(value).encode('utf-8')
-        elif not isinstance(value, basestring):
-            value = str(value).encode('utf-8')
-        else:
-            value = value.encode('utf-8', 'strict')
+        value = repr(value) if isinstance(value, float) else str(value)
+        if self.decode_responses and isinstance(value, bytes):
+            value = value.decode(self.encoding, self.encoding_errors)
+        elif not self.decode_responses and isinstance(value, unicode):
+            value = value.encode(self.encoding, self.encoding_errors)
         return value
 
 
